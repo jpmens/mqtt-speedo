@@ -1,0 +1,80 @@
+<!-- Check out the source code on http://github.com/vjt/canvas-speedometer -->
+<html>
+    <head>
+    	<title>MQTT: msgs/s, 1byte payload over WSS</title>
+        <link rel="stylesheet" type="text/css" href="speedometer.css" media="screen" />
+
+        <script type="text/javascript" src="vendor/xcanvas.js"></script>
+        <script type="text/javascript" src="vendor/tbe.js"></script>
+
+        <script type="text/javascript" src="vendor/digitaldisplay.js"></script>
+        <script type="text/javascript" src="vendor/speedometer.js"></script>
+        <script type="text/javascript" src="vendor/themes/default.js"></script>
+        <script type="text/javascript" src="vendor/mqttws31.js"></script>
+
+        <script type="text/javascript">
+          var speedometer;
+	  var nmsgs = 0;
+	  var nsecs = 1;
+          // Explicit onready listener for modern browsers. If you use a JS framework,
+          // you should replace this code with your toolkit's "onReady" helpers (e.g.
+          // $(document).ready() on jQuery, Event.observe('dom:loaded') on prototype,
+          // and so on.
+          document.addEventListener ("DOMContentLoaded", function() {
+            document.removeEventListener ("DOMContentLoaded", arguments.callee, false);
+
+            // Check out configuration and API on GitHub Wiki:
+            // http://wiki.github.com/vjt/canvas-speedometer
+            speedometer = new Speedometer ('speedometer', {theme: 'default', display: false});
+            speedometer.draw ();
+            speedometer.addEventListener ('speedometer:animateend', function () {
+	    	init();
+
+
+            });
+	    speedometer.animatedRescale (8000, 1);
+          }, false);
+
+
+	function init() {
+
+		function counter_trigger() {
+			if (nmsgs) {
+				++nsecs;
+			}
+			nsecs = (nsecs < 1) ? 1 : nsecs;
+			speedometer.update(nmsgs / nsecs);
+		}
+
+		var mqttc = new Messaging.Client("localhost", 18883,
+				"speedo_" + parseInt(Math.random() * 100, 10));
+
+		mqttc.onMessageArrived = function (message) {
+			// alert(message.payloadString);
+			nmsgs++;
+		};
+
+		var options = {
+			timeout: 3,
+			onSuccess: function () {
+				// Connection succeeded; subscribe to our topic
+				mqttc.subscribe('boom/counter', {qos: 0});
+				window.setInterval(counter_trigger, 1000);
+			},
+			onFailure: function (message) {
+				alert("Connection failed: " + message.errorMessage);
+			}
+		};
+
+		/* Connect to MQTT broker */
+		mqttc.connect(options);
+	}
+        </script>
+    </head>
+    <body>
+        <div id="speedometer"></div>
+
+	<input type="button" id="reset" value="reset" onclick="nmsgs=0;"/>
+
+    </body>
+</html>
